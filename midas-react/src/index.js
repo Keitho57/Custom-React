@@ -7,7 +7,7 @@ function createElement(type, props, ...children) {
                 typeof child === 'object'
                     ? child
                     : createTextElement(child)
-            )
+            ),
         },
     }
 }
@@ -18,7 +18,7 @@ function createTextElement(text) {
         props: {
             nodeValue: text,
             children: [],
-        }
+        },
     }
 }
 
@@ -48,7 +48,7 @@ function updateDom(dom, prevProps, nextProps) {
                 !(key in nextProps) ||
                 isNew(prevProps, nextProps)(key)
         )
-        .forEach( name => {
+        .forEach(name => {
             const eventType = name
                 .toLowerCase()
                 .substring(2)
@@ -78,7 +78,7 @@ function updateDom(dom, prevProps, nextProps) {
     Object.keys(nextProps)
         .filter(isEvent)
         .filter(isNew(prevProps, nextProps))
-        .forEach( name => {
+        .forEach(name => {
             const eventType = name
                 .toLowerCase()
                 .substring(2)
@@ -100,12 +100,11 @@ function commitWork(fiber) {
     if(!fiber) {
         return
     }
-    let domParentFiber = fiber.parent
 
+    let domParentFiber = fiber.parent
     while(!domParentFiber.dom) {
         domParentFiber = domParentFiber.parent
     }
-
     const domParent = domParentFiber.dom
 
     if(
@@ -123,10 +122,9 @@ function commitWork(fiber) {
            fiber.props
        )
     } else if(fiber.effectTag === "DELETION") {
-        domParent.removeChild(fiber.dom)
         commitDeletion(fiber, domParent)
     }
-    domParent.appendChild(fiber.dom)
+    
     commitWork(fiber.child)
     commitWork(fiber.sibling)
 }
@@ -159,14 +157,16 @@ let deletions = null
 function workLoop(deadline) {
     let shouldYield = false
     while (nextUnitOfWork && !shouldYield) {
-        nextUnitOfWork = performUnitOfWork(nextUnitOfWork)
-
+        nextUnitOfWork = performUnitOfWork(
+                nextUnitOfWork
+            )
         shouldYield = deadline.timeRemaining() < 1
     }
 
     if(!nextUnitOfWork && wipRoot) {
         commitRoot()
     }
+
     requestIdleCallback(workLoop)
 }
 
@@ -175,28 +175,14 @@ requestIdleCallback(workLoop)
 function performUnitOfWork(fiber) { 
     const isFunctionalComponent = 
         fiber.type instanceof Function
-
     if(isFunctionalComponent) {
         updateFunctionComponent(fiber)
     } else {
         updateHostComponent(fiber)
     }
-
-    // add dom node
-    if(!fiber.dom) {
-        fiber.dom = createDom(fiber)
-    }
-
-    // create new fibers
-    const elements = fiber.props.children
-
-    reconcileChildren(fiber, elements)
-
-    // return next unit of work
     if(fiber.child) {
         return fiber.child
     }
-
     let nextFiber = fiber
     while(nextFiber) {
         if(nextFiber.sibling) {
@@ -214,7 +200,6 @@ function updateFunctionComponent(fiber) {
     hookIndex = 0
     wipFiber.hooks = []
     const children = [fiber.type(fiber.props)]
-
     reconcileChildren(fiber, children)
 }
 
@@ -223,14 +208,12 @@ function useState(initial) {
         wipFiber.alternate &&
         wipFiber.alternate.hooks &&
         wipFiber.alternate.hooks[hookIndex]
-    
     const hook = {
         state: oldHook ? oldHook.state : initial,
         queue: [],
     }
 
     const actions = oldHook ? oldHook.queue : []
-
     actions.forEach((action) => {
         hook.state = action(hook.state)
     })
@@ -252,10 +235,9 @@ function useState(initial) {
 }
 
 function updateHostComponent(fiber) {
-    if(fiber.dom) {
+    if(!fiber.dom) {
         fiber.dom = createDom(fiber)
     }
-
     reconcileChildren(fiber, fiber.props.children)
 }
 
@@ -270,17 +252,14 @@ function reconcileChildren(wipFiber, elements) {
         oldFiber != null
     ) {
         const element = elements[index]
-
         let newFiber = null
 
-        const sameType = (
+        const sameType =
             oldFiber &&
             element &&
-            element.type == oldFiber.type
-        )
+            element.type == oldFiber.type     
 
-        if(sameType) {
-            // update the node
+        if(sameType) { // update the node
             newFiber = {
                 type: oldFiber.type,
                 props: elements.props,
@@ -290,9 +269,7 @@ function reconcileChildren(wipFiber, elements) {
                 effectTag: 'UPDATE',
             }
         }
-
-        if(element && !sameType) {
-            // add this node
+        if(element && !sameType) { // Add this node
             newFiber = {
                 type: element.type,
                 props: elements.props,
@@ -302,9 +279,7 @@ function reconcileChildren(wipFiber, elements) {
                 effectTag: 'PLACEMENT',
             }
         }
-
-        if(oldFiber && !sameType) {
-            // delete the oldFiber's node
+        if(oldFiber && !sameType) { // delete the oldFiber's node
             oldFiber.effectTag = 'DELETION' 
             deletions.push(oldFiber) 
         }
