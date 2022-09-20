@@ -1,13 +1,9 @@
-/* eslint-disable no-unused-expressions */
-/* eslint-disable react/style-prop-object */
-
 function createElement(type, props, ...children) {
     return {
         type,
         props: {
             ...props,
             children: children.map((child) => 
-                //If child not an obj then create unique object TEXT_ELEMENT
                 typeof child === 'object'
                     ? child
                     : createTextElement(child)
@@ -43,7 +39,6 @@ const isProperty = key =>
 const isNew = (prev, next) => key => 
     prev[key] !== next[key]
 const isGone = (prev, next) => key => !(key in next)
-
 function updateDom(dom, prevProps, nextProps) {
     // Remove old or changed event listeners
     Object.keys(prevProps)
@@ -118,9 +113,6 @@ function commitWork(fiber) {
         fiber.dom != null
     ) {
         domParent.appendChild(fiber.dom)
-    } else if(fiber.effectTag === "DELETION") {
-        domParent.removeChild(fiber.dom)
-        commitDeletion(fiber, domParent)
     } else if(
         fiber.effectTag === "UPDATE" &&
         fiber.dom != null
@@ -130,6 +122,9 @@ function commitWork(fiber) {
            fiber.alternate.props,
            fiber.props
        )
+    } else if(fiber.effectTag === "DELETION") {
+        domParent.removeChild(fiber.dom)
+        commitDeletion(fiber, domParent)
     }
     domParent.appendChild(fiber.dom)
     commitWork(fiber.child)
@@ -211,10 +206,49 @@ function performUnitOfWork(fiber) {
     }
 }
 
+let wipFiber = null
+let hookIndex = null
+
 function updateFunctionComponent(fiber) {
+    wipFiber = fiber
+    hookIndex = 0
+    wipFiber.hooks = []
     const children = [fiber.type(fiber.props)]
 
     reconcileChildren(fiber, children)
+}
+
+function useState(initial) {
+    const oldHook =
+        wipFiber.alternate &&
+        wipFiber.alternate.hooks &&
+        wipFiber.alternate.hooks[hookIndex]
+    
+    const hook = {
+        state: oldHook ? oldHook.state : initial,
+        queue: [],
+    }
+
+    const actions = oldHook ? oldHook.queue : []
+
+    actions.forEach((action) => {
+        hook.state = action(hook.state)
+    })
+
+    const setState = action => {
+        hook.queue.push(action)
+        wipRoot = {
+            dom: currentRoot.dom,
+            props: currentRoot.props,
+            alternate: currentRoot,
+        }
+        nextUnitOfWork = wipRoot
+        deletions = []
+    }
+
+    wipFiber.hooks.push(hook)
+    hookIndex++
+    return [hook.state, setState]
 }
 
 function updateHostComponent(fiber) {
@@ -292,13 +326,19 @@ function reconcileChildren(wipFiber, elements) {
 
 const Midas = {
     createElement,
-    render
+    render,
+    useState,
 }
 
 /** @jsx Midas.createElement */
-function App(props) {
-    return <h1>Hi {props.name}</h1>
+function Counter() {
+    const [state, setState] = Midas.useState(1)
+    return (
+        <h1 onClick={() => setState(c => c + 1)}>
+            Count: {state}
+        </h1>
+    )
 }
-const element = <App name="foo" />
-const container = document.getElementById("root")
+const element = <Counter />
+const container = document.getElementById('root')
 Midas.render(element, container)
