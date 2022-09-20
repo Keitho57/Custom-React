@@ -105,7 +105,13 @@ function commitWork(fiber) {
     if(!fiber) {
         return
     }
-    const domParent = fiber.parent.dom
+    let domParentFiber = fiber.parent
+
+    while(!domParentFiber.dom) {
+        domParentFiber = domParentFiber.parent
+    }
+
+    const domParent = domParentFiber.dom
 
     if(
         fiber.effectTag === "PLACEMENT" &&
@@ -114,6 +120,7 @@ function commitWork(fiber) {
         domParent.appendChild(fiber.dom)
     } else if(fiber.effectTag === "DELETION") {
         domParent.removeChild(fiber.dom)
+        commitDeletion(fiber, domParent)
     } else if(
         fiber.effectTag === "UPDATE" &&
         fiber.dom != null
@@ -127,6 +134,14 @@ function commitWork(fiber) {
     domParent.appendChild(fiber.dom)
     commitWork(fiber.child)
     commitWork(fiber.sibling)
+}
+
+function commitDeletion(fiber, domParent) {
+    if(fiber.dom) {
+        domParent.removeChild(fiber.dom)
+    } else {
+        commitDeletion(fiber.child, domParent)
+    }
 }
 
 function render(element, container) {
@@ -149,9 +164,7 @@ let deletions = null
 function workLoop(deadline) {
     let shouldYield = false
     while (nextUnitOfWork && !shouldYield) {
-        nextUnitOfWork = performUnitOfWork(
-            nextUnitOfWork
-        )
+        nextUnitOfWork = performUnitOfWork(nextUnitOfWork)
 
         shouldYield = deadline.timeRemaining() < 1
     }
@@ -164,7 +177,16 @@ function workLoop(deadline) {
 
 requestIdleCallback(workLoop)
 
-function performUnitOfWork(fiber) {
+function performUnitOfWork(fiber) { 
+    const isFunctionalComponent = 
+        fiber.type instanceof Function
+
+    if(isFunctionalComponent) {
+        updateFunctionComponent(fiber)
+    } else {
+        updateHostComponent(fiber)
+    }
+
     // add dom node
     if(!fiber.dom) {
         fiber.dom = createDom(fiber)
@@ -187,6 +209,20 @@ function performUnitOfWork(fiber) {
         }
         nextFiber = nextFiber.parent
     }
+}
+
+function updateFunctionComponent(fiber) {
+    const children = [fiber.type(fiber.props)]
+
+    reconcileChildren(fiber, children)
+}
+
+function updateHostComponent(fiber) {
+    if(fiber.dom) {
+        fiber.dom = createDom(fiber)
+    }
+
+    reconcileChildren(fiber, fiber.props.children)
 }
 
 function reconcileChildren(wipFiber, elements) {
@@ -260,20 +296,9 @@ const Midas = {
 }
 
 /** @jsx Midas.createElement */
+function App(props) {
+    return <h1>Hi {props.name}</h1>
+}
+const element = <App name="foo" />
 const container = document.getElementById("root")
-
-const updateValue = e => {
-  rerender(e.target.value)
-}
-
-const rerender = value => {
-  const element = (
-    <div>
-      <input onInput={updateValue} value={value} />
-      <h2>Hello {value}</h2>
-    </div>
-  )
-  Midas.render(element, container)
-}
-
-rerender("World")
+Midas.render(element, container)
