@@ -56,7 +56,7 @@ function updateDom(dom, prevProps, nextProps) {
         });
 
     // Set new or changed properties
-    Object.keys(prevProps)
+    Object.keys(nextProps)
         .filter(isProperty)
         .filter(isNew(prevProps, nextProps))
         .forEach((name) => {
@@ -145,8 +145,8 @@ function workLoop(deadline) {
 requestIdleCallback(workLoop);
 
 function performUnitOfWork(fiber) {
-    const isFunctionalComponent = fiber.type instanceof Function;
-    if (isFunctionalComponent) {
+    const isFunctionComponent = fiber.type instanceof Function;
+    if (isFunctionComponent) {
         updateFunctionComponent(fiber);
     } else {
         updateHostComponent(fiber);
@@ -227,7 +227,7 @@ function reconcileChildren(wipFiber, elements) {
             // update the node
             newFiber = {
                 type: oldFiber.type,
-                props: elements.props,
+                props: element.props,
                 dom: oldFiber.dom,
                 parent: wipFiber,
                 alternate: oldFiber,
@@ -238,7 +238,7 @@ function reconcileChildren(wipFiber, elements) {
             // Add this node
             newFiber = {
                 type: element.type,
-                props: elements.props,
+                props: element.props,
                 dom: null,
                 parent: wipFiber,
                 alternate: null,
@@ -257,7 +257,7 @@ function reconcileChildren(wipFiber, elements) {
 
         if (index === 0) {
             wipFiber.child = newFiber;
-        } else {
+        } else if (element) {
             prevSibling.sibling = newFiber;
         }
 
